@@ -30,12 +30,28 @@ exports.handleIdentify = async (req, res) => {
     // 4. Get the primary contact (or oldest if multiple)
     let primaryContact = matchingContacts.find(c => c.linkPrecedence === 'primary') || matchingContacts[0];
 
-    // 5. Check if new data requires merging
+    // 5. Handle new data that needs to be added
+    const newData = {
+      email: email && !matchingContacts.some(c => c.email === email) ? email : null,
+      phoneNumber: phoneNumber && !matchingContacts.some(c => c.phoneNumber === phoneNumber) ? phoneNumber : null
+    };
+
+    // If we have new data, create a secondary contact
+    if (newData.email || newData.phoneNumber) {
+      await Contact.create({
+        email: newData.email,
+        phoneNumber: newData.phoneNumber,
+        linkedId: primaryContact.id,
+        linkPrecedence: 'secondary'
+      });
+    }
+
+    // 6. Check if we need to merge any contacts
     if (matchingContacts.some(c => c.id !== primaryContact.id)) {
       await mergeContacts(primaryContact, matchingContacts);
     }
 
-    // 6. Format response
+    // 7. Format response
     const allContacts = await fetchAllLinkedContacts(primaryContact.id);
     return formatResponse(res, primaryContact.id, allContacts.emails, allContacts.phones, allContacts.secondaryIds);
 
@@ -94,7 +110,7 @@ function formatResponse(res, primaryId, emails, phones, secondaryIds) {
   return res.json({
     contact: {
       primaryContactId: primaryId,
-      emails: [...new Set(emails)], // Remove duplicates
+      emails: [...new Set(emails)], 
       phoneNumbers: [...new Set(phones)],
       secondaryContactIds: secondaryIds
     }
