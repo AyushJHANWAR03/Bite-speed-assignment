@@ -110,7 +110,7 @@ function formatResponse(res, primaryId, emails, phones, secondaryIds) {
   return res.json({
     contact: {
       primaryContactId: primaryId,
-      emails: [...new Set(emails)], 
+      emails: [...new Set(emails)], // Remove duplicates
       phoneNumbers: [...new Set(phones)],
       secondaryContactIds: secondaryIds
     }
