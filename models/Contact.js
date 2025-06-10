@@ -31,7 +31,12 @@ const Contact = sequelize.define('Contact', {
   }
 }, { 
   timestamps: true,
-  paranoid: true // Enables soft deletes
+  paranoid: true, // Enables soft deletes
+  indexes: [
+    { fields: ['email'] },
+    { fields: ['phoneNumber'] },
+    { fields: ['linkedId'] }
+  ]
 });
 
 module.exports = Contact; 

@@ -1,34 +1,102 @@
+const { Op } = require('sequelize');
 const Contact = require('../models/Contact');
 
 exports.handleIdentify = async (req, res) => {
   try {
     const { email, phoneNumber } = req.body;
 
-    // Validate input
+    // 1. Validate input
     if (!email && !phoneNumber) {
-      return res.status(400).json({
-        error: 'At least one of email or phoneNumber is required'
-      });
+      return res.status(400).json({ error: 'At least one of email or phoneNumber is required' });
     }
 
-    // TODO: Implement the core logic for contact identification and linking
-    // 1. Find existing contacts
-    // 2. Handle linking/merging
-    // 3. Return consolidated response
+    // 2. Find all matching contacts (email OR phone)
+    const matchingContacts = await Contact.findAll({
+      where: {
+        [Op.or]: [
+          ...(email ? [{ email }] : []),
+          ...(phoneNumber ? [{ phoneNumber }] : [])
+        ]
+      },
+      order: [['createdAt', 'ASC']] // Oldest first for merging
+    });
 
-    res.json({
-      contact: {
-        primaryContactId: null,
-        emails: [],
-        phoneNumbers: [],
-        secondaryContactIds: []
-      }
-    });
+    // 3. No matches? Create a new primary contact
+    if (matchingContacts.length === 0) {
+      const newContact = await Contact.create({ email, phoneNumber });
+      return formatResponse(res, newContact.id, [newContact.email], [newContact.phoneNumber], []);
+    }
+
+    // 4. Get the primary contact (or oldest if multiple)
+    let primaryContact = matchingContacts.find(c => c.linkPrecedence === 'primary') || matchingContacts[0];
+
+    // 5. Check if new data requires merging
+    if (matchingContacts.some(c => c.id !== primaryContact.id)) {
+      await mergeContacts(primaryContact, matchingContacts);
+    }
+
+    // 6. Format response
+    const allContacts = await fetchAllLinkedContacts(primaryContact.id);
+    return formatResponse(res, primaryContact.id, allContacts.emails, allContacts.phones, allContacts.secondaryIds);
+
   } catch (error) {
-    console.error('Error in identify endpoint:', error);
-    res.status(500).json({
-      error: 'Internal server error',
-      message: error.message
-    });
+    console.error('Error:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
-}; 
+};
+
+// Helper function to merge contacts
+async function mergeContacts(primaryContact, contactsToMerge) {
+  const contactsToUpdate = contactsToMerge.filter(c => c.id !== primaryContact.id);
+  
+  for (const contact of contactsToUpdate) {
+    // If this contact was primary, update its precedence
+    if (contact.linkPrecedence === 'primary') {
+      await contact.update({
+        linkPrecedence: 'secondary',
+        linkedId: primaryContact.id
+      });
+    } else {
+      // If it was already secondary, just update the linkedId
+      await contact.update({
+        linkedId: primaryContact.id
+      });
+    }
+  }
+}
+
+// Helper function to fetch all linked contacts
+async function fetchAllLinkedContacts(primaryId) {
+  const contacts = await Contact.findAll({
+    where: {
+      [Op.or]: [
+        { id: primaryId },
+        { linkedId: primaryId }
+      ]
+    }
+  });
+
+  const emails = contacts.map(c => c.email).filter(Boolean);
+  const phones = contacts.map(c => c.phoneNumber).filter(Boolean);
+  const secondaryIds = contacts
+    .filter(c => c.id !== primaryId)
+    .map(c => c.id);
+
+  return {
+    emails,
+    phones,
+    secondaryIds
+  };
+}
+
+// Helper function to format the response
+function formatResponse(res, primaryId, emails, phones, secondaryIds) {
+  return res.json({
+    contact: {
+      primaryContactId: primaryId,
+      emails: [...new Set(emails)], // Remove duplicates
+      phoneNumbers: [...new Set(phones)],
+      secondaryContactIds: secondaryIds
+    }
+  });
+} 
