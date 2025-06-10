@@ -18,8 +18,8 @@ A Node.js service that helps identify and merge contact information based on ema
 
 1. Clone the repository:
 ```bash
-git clone <your-repository-url>
-cd <repository-name>
+git clone https://github.com/AyushJHANWAR03/Bite-speed-assignment
+cd Bite-speed-assignment
 ```
 
 2. Install dependencies:
@@ -58,7 +58,7 @@ The server will start running on `http://localhost:3000`
 
 ### Identify Contact
 
-**Endpoint:** `POST /identify`
+**Endpoint:** `POST /api/identify`
 
 **Request Body:**
 ```json
@@ -93,20 +93,20 @@ npm test
 
 Using cURL:
 ```bash
-curl -X POST http://localhost:3000/identify \
+curl -X POST https://bite-speed-assignment.onrender.com/api/identify \
 -H "Content-Type: application/json" \
 -d '{"email": "example@email.com", "phoneNumber": "1234567890"}'
 ```
 
 Using Postman:
-1. Create a new POST request to `http://localhost:3000/identify`
+1. Create a new POST request to `https://bite-speed-assignment.onrender.com/api/identify`
 2. Set the Content-Type header to `application/json`
 3. Add the request body in JSON format
 4. Send the request
 
 ## Deployment
 
-The application will be deployed on Render.com. The production endpoint will be updated here once deployed.
+The application is deployed and accessible at: https://bite-speed-assignment.onrender.com
 
 ## Contributing
 
